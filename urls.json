@@ -1,0 +1,5 @@
+var urls = {
+    [url: {path: "/foo", delay: false, random: false, fail: false}]
+}
+
+module.exports = urls;
