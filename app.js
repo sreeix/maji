@@ -5,13 +5,21 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-
+var util = require('util');
 var routes = require('./routes/index');
 
 var app = express();
 var _ = require('underscore');
 var Promise = require('bluebird');
-var url = require('./url');
+
+
+Promise.config({
+    longStackTraces: true,
+    warnings: true // note, run node with --trace-warnings to see full stack traces for warnings
+})
+var request = require("request");
+
+var urls = require('./urls');
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -25,7 +33,35 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 
-app.use('/', routes);
+_.each(urls, function (u) {
+    var methods = _.flatten([u.methods || u.method ||  ['get', 'post', 'delete', 'put']]);
+    _.each(methods, function (method) {
+        console.log("Registering  path:"+ u.path +" for method "+ method + "  to proxy " + u.proxy);
+        app[method](u.path, function (req, res, next) {
+            console.log("Invoked method "+ method + " on "+ u.path);
+            return Promise.try(_.partial(delayFn, u.delay)).then(_.partial(proxy, method, u.proxy, req)).then(_.partial(randomFn, u.random)).then(function (data) {
+//                console.log("processed", data);
+                var proxyResponse = data.res;
+                console.log(proxyResponse.headers);
+                _.each(proxyResponse.headers, function (value, header) {
+                    res.set(header, value);
+                });
+
+                return res.status(data.code|| proxyResponse.statusCode).send(data.body);
+            }).catch(function (err) {
+                console.log(err);
+                console.log(err.stacktrace);
+                return res.status(err.code || 500).send(err.message)
+            });
+        });
+
+    });
+});
+
+
+
+//console.log(app._router.stack);
+
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -59,43 +95,54 @@ app.use(function(err, req, res, next) {
 });
 
 
-
-_.each(urls, function (u) {
-    app[u.method](u.path, function (req, res, next) {
-        return Promise.try(_.partial(delayFn(u.delay))).then(_.partial(randomFn(u.random))).then(function (data) {
-            return res.status(data.code|| 200).send(data.value);
-        }).catch(function (err) {
-            return res.status(err.code || 400).send(err.message)
+function proxy(method, url, req, data) {
+    if(!_.isEmpty(req.params)) {
+        _.each(req.params, function (value, key) {
+            url = url.replace(":"+key, value);
+        })
+    }
+    return new Promise(function (resolve, reject) {
+        var reqOptions = {url: url, method: method, headers: req.headers };
+        if(!_.isEmpty(req.query)) {
+            _.extend(reqOptions, {qs: req.query});
+        }
+        return request(reqOptions, function(err, res, body) {
+            if(err){
+                console.log("called downstream, failed", err);
+                return reject(err);
+            }
+            data.res = res;
+            data.body = body;
+            return resolve(data);
         });
     });
-});
+}
 
 function delayFn(val, data) {
+    if(val == null ||val== false || _.isUndefined(val) || parseInt(val, 10) === NaN) {
+        console.log("there is no delay");
+        return Promise.resolve(data || {}); // return null promise
+    }
 
     if(_.isFunction(val)) {
-        return new Promise(function () {
-            return val(data);
-        }); // execute the function and return the promise
+        val = val.apply(null, [data]);
     }
 
-    if(val == null || _.isUndefined(val) || parseInt(val, 10) === NaN) {
-        return Promise.return({}); // return null promise
-    }
-
-    return Promise.delay(val).return({}); // delay
+    console.log("Delaying by "+ val);
+    return Promise.delay(val).return(data || {});
 }
 
 
 function randomFn(rVal, data) {
     if(_.isFunction(rVal)) {
-        return new Promise(function () {
-            return val(data);
-        }); // execute the function and return the promise
+        rVal =  rVal.apply(null, [data]);
     }
     if(rVal === true) {
         data.code = _.sample([200,201,202, 204, 301, 302, 400,401, 402, 403, 404, 405, 406, 408, 409, 410, 412, 413, 415, 417, 418, 422, 428, 500, 501, 502, 503, 504, 505]);
+        console.log("Setting return code to "+ data.code);
     }
     if(_.isNumber(rVal)) {
+        console.log("Setting return code to "+ rval);
         data.code = rVal;
     }
     return data;
