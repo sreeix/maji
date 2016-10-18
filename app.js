@@ -1,4 +1,5 @@
 'use strict'
+
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
@@ -126,6 +127,10 @@ function delayFn(val, data) {
 
     if(_.isFunction(val)) {
         val = val.apply(null, [data]);
+    }
+
+    if(val === true){
+        val = 1000;
     }
 
     console.log("Delaying by "+ val);

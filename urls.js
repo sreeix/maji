@@ -10,6 +10,17 @@ var urls =  [
         fail: false
     },
     {
+        path: "/foo",
+        proxy: "http://localhost:8000/users/1/tokens",
+        method: 'post',
+        delay: false,
+        random: false,
+        fail: function () {
+            return _.random(1,3)=== 1; // fail 33% of the requests.
+        }
+    },
+
+    {
         path: "/bar",
         proxy: "http://localhost:8000/users/1/tokens",
         method: ['get', 'post'],
