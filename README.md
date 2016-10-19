@@ -1,6 +1,6 @@
 ### Maji Proxy
 
-An annoying service that provides a way of testing how an upstream service will behave when the down stream service misbehaves.
+An annoying service that provides a way of testing how an upstream service will behave when the down stream service misbehaves, But a life saver on those bad days.
 
 
 Allows users to set
