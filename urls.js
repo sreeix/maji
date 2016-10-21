@@ -7,6 +7,7 @@ var urls =  [
         method: 'get',
         delay: false,
         random: false,
+	sslCheck: true,
         fail: false
     },
     {
@@ -15,6 +16,7 @@ var urls =  [
         method: 'post',
         delay: false,
         random: false,
+	sslCheck: true,
         fail: function () {
             return _.random(1,3)=== 1; // fail 33% of the requests.
         }
@@ -28,6 +30,7 @@ var urls =  [
             return _.random(1,5000);
         },
         random: false,
+	sslCheck: true,
         fail: false
     },
     {
@@ -36,6 +39,7 @@ var urls =  [
         method: ['get'],
         delay: 1000,
         random: true,
+	sslCheck: true,
         fail: false
     }
 ];
