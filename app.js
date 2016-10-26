@@ -40,7 +40,7 @@ _.each(urls, function (u) {
         console.log("Registering  path:"+ u.path +" for method "+ method + "  to proxy " + u.proxy);
         app[method](u.path, function (req, res, next) {
             console.log("Invoked method "+ method + " on "+ u.path);
-            return Promise.try(_.partial(delayFn, u.delay)).then(_.partial(proxy, method, u.proxy, req)).then(_.partial(randomFn, u.random)).then(function (data) {
+            return Promise.try(_.partial(delayFn, u.delay)).then(_.partial(proxy, method, u.proxy, u.sslCheck, req)).then(_.partial(randomFn, u.random)).then(function (data) {
 //                console.log("processed", data);
                 var proxyResponse = data.res;
                 console.log(proxyResponse.headers);
@@ -96,14 +96,14 @@ app.use(function(err, req, res, next) {
 });
 
 
-function proxy(method, url, req, data) {
+function proxy(method, url, req, sslCheck, data) {
     if(!_.isEmpty(req.params)) {
         _.each(req.params, function (value, key) {
             url = url.replace(":"+key, value);
         })
     }
     return new Promise(function (resolve, reject) {
-        var reqOptions = {url: url, method: method, headers: req.headers };
+        var reqOptions = {url: url, method: method, headers: req.headers, rejectUnauthorized: sslCheck };
         if(!_.isEmpty(req.query)) {
             _.extend(reqOptions, {qs: req.query});
         }

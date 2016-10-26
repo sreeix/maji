@@ -32,9 +32,15 @@ The below are mandatory.
 
 
 Following are optional and default values are applied
+
 `method`: Can be a string or an array of HTTP methods. Default is to proxy only GET, POST, PUT, DELETE
+
 `delay`: Time in milliseconds to delay the downstream function. It can be a boolean, a numeric value(time to delay in ms), or a function. The default is false.
+
 `random`: Allows for random status code. It will override the downstream response code. It can be a boolean, a numeric value, or a function. The default is false.
+
+`sslCheck`: Validate SSL or not. Default is false.
+
 `fail`: Failure response for the downstream service.
 
 
