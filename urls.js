@@ -40,5 +40,15 @@ var urls =  [
     }
 ];
 
+// tcp only
+var ports = [
+    {
+        local: 5555,
+        proxy: "localhost:6379",
+        delay:1000,
+        delayConnect: 1000
+    }
+];
 
-module.exports = urls;
+
+module.exports = { http: urls, tcp: ports};

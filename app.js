@@ -7,7 +7,7 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var util = require('util');
-
+var net = require('net');
 
 var app = express();
 var _ = require('underscore');
@@ -20,7 +20,7 @@ Promise.config({
 })
 var request = require("request");
 
-var urls = require('./urls');
+var proxyApi = require('./urls');
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -33,15 +33,14 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-
-_.each(urls, function (u) {
+// Meta programm the specified routes.
+_.each(proxyApi.http, function (u) {
     var methods = _.flatten([u.methods || u.method ||  ['get', 'post', 'delete', 'put']]);
     _.each(methods, function (method) {
         console.log("Registering  path:"+ u.path +" for method "+ method + "  to proxy " + u.proxy);
         app[method](u.path, function (req, res, next) {
             console.log("Invoked method "+ method + " on "+ u.path);
             return Promise.try(_.partial(delayFn, u.delay)).then(_.partial(proxy, method, u.proxy, req)).then(_.partial(randomFn, u.random)).then(function (data) {
-//                console.log("processed", data);
                 var proxyResponse = data.res;
                 console.log(proxyResponse.headers);
                 _.each(proxyResponse.headers, function (value, header) {
@@ -60,8 +59,65 @@ _.each(urls, function (u) {
 });
 
 
+_.each(proxyApi.tcp, function (portInfo) {
+    var server = net.createServer(function(sock) {
 
-//console.log(app._router.stack);
+        var serviceSocket = new net.Socket();
+
+        console.log('CONNECTED: ' + sock.remoteAddress +':'+ sock.remotePort);
+        Promise.try(_.partial(delayFn, portInfo.delayConnect)).then(function () {
+            var remote = portInfo.proxy.split(":");
+            var remotePort = parseInt(remote[1], 10);
+
+            serviceSocket.connect(remotePort, remote[0], function () {
+                console.log("Connected to the remote socket");
+            });
+        });
+
+        // I could have piped it, but need more control to do things.
+        sock.on('data', function (data) {
+            console.log('data', data.toString('utf-8'));
+            Promise.try(_.partial(delayFn, portInfo.delay)).then(function () {
+                serviceSocket.write(data);
+            });
+
+        });
+        sock.on('close', function () {
+            console.log('close');
+            serviceSocket.close();
+        });
+        sock.on('end', function () {
+            console.log("end");
+            serviceSocket.close();
+        });
+
+        serviceSocket.on("data", function (data) {
+            console.log('<< From remote to proxy', data.toString());
+            sock.write(data);
+            console.log('>> From proxy to client', data.toString());
+        });
+
+
+        serviceSocket.on("close", function () {
+            console.log("Got end from the downstream. Disconnecting");
+            sock.end();
+
+        });
+
+        serviceSocket.on("error", function () {
+            console.log("Got error from downstream.");
+        });
+
+    });
+
+    server.listen({
+        host: 'localhost',
+        port: portInfo.local,
+        exclusive: true
+    }, function () {
+        console.log('Server listening on ', server.address());
+    });
+});
 
 
 // catch 404 and forward to error handler
